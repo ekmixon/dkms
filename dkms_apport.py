@@ -39,20 +39,23 @@ if not options.module or not options.version:
     sys.stderr.write('ERROR (dkms apport): both -m and -v are required\n')
     sys.exit(2)
 
-package=packaging.get_file_package('/usr/src/' + options.module + '-' + options.version)
+package = packaging.get_file_package(
+    f'/usr/src/{options.module}-{options.version}'
+)
+
 if package is None:
     sys.stderr.write('ERROR (dkms apport): binary package for %s: %s not found\n' % (options.module,options.version))
     sys.exit(1)
 
 if options.kernel:
     # TODO: Ubuntu specific
-    kernel_package = "linux-headers-" + options.kernel
+    kernel_package = f"linux-headers-{options.kernel}"
 
     supported_kernel = True
     try:
         supported_kernel = apport.packaging.is_distro_package(kernel_package)
     except ValueError as e:
-        if str(e) == 'package %s does not exist' % kernel_package:
+        if str(e) == f'package {kernel_package} does not exist':
             supported_kernel = False
 
     if not supported_kernel:
@@ -68,7 +71,7 @@ except ValueError:
     version = '(not installed)'
 if version is None:
     version = '(not installed)'
-report['Package'] = '%s %s' % (package, version)
+report['Package'] = f'{package} {version}'
 try:
     report['SourcePackage'] = apport.packaging.get_source(package)
 except ValueError:
@@ -80,16 +83,19 @@ if report['SourcePackage'] == 'fglrx-installer':
     attach_file_if_exists(report, fglrx_make_log, 'FglrxBuildLog')
 
 report['PackageVersion'] = version
-report['Title'] = "%s %s: %s kernel module failed to build" % (package, version, options.module)
+report[
+    'Title'
+] = f"{package} {version}: {options.module} kernel module failed to build"
+
 attach_file_if_exists(report, make_log, 'DKMSBuildLog')
 if 'DKMSBuildLog' in report:
-    this_year = str(datetime.today().year)
+    this_year = str(datetime.now().year)
     if 'Segmentation fault' in report['DKMSBuildLog']:
         sys.stderr.write('ERROR (dkms apport): There was a segmentation fault when trying to build the module\n')
         sys.exit(1)
     for line in report['DKMSBuildLog'].split('\n'):
         if ': error:' in line:
-            report['DuplicateSignature'] = 'dkms:%s:%s:%s' % (package, version, line.strip())
+            report['DuplicateSignature'] = f'dkms:{package}:{version}:{line.strip()}'
             break
 
 if options.kernel:
@@ -98,4 +104,4 @@ try:
     with apport.fileutils.make_report_file(report) as f:
         report.write(f)
 except (IOError, OSError) as e:
-    apport.fatal('Cannot create report: ' + str(e))
+    apport.fatal(f'Cannot create report: {str(e)}')
